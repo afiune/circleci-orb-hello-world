@@ -4,13 +4,33 @@ description: "A hello world CircleCI Orb"
 executors:
   default:
     description: A docker container that has the latest lacework-cli
-    machine:
-      image: techallylw/lacework-cli
+    docker:
+      - image: techallylw/lacework-cli
 
 commands:
   install-cli:
-    description: Install the cli
+    description: Install the Lacework CLI
+    steps:
+      - run:
+          command: |
+            curl https://raw.githubusercontent.com/lacework/go-sdk/master/cli/install.sh | bash 
+  request-scan:
+    description: Request an on-demand vulnerability scan
     parameters:
+      registry:
+        description: Container registry where the container image has been published
+        type: string
+      repository:
+        description: Repository name that contains the container image
+        type: string
+      tag:
+        description: The tag to scan
+        type: string
+        default: latest
+      digest:
+        description: An image digest to scan (format sha256:1ee...1d3b)
+        type: string
+        default: ""
       account:
         description: Account subdomain of URL (i.e. ACCOUNT.lacework.net)
         type: string
@@ -26,33 +46,12 @@ commands:
     steps:
       - run:
           command: |
-            curl https://raw.githubusercontent.com/lacework/go-sdk/master/cli/install.sh | bash 
-
-            lacework configure -a << parameters.account >> -k << parameters.api-key >> -s << parameters.api-secret >>
-  request-scan:
-    description: Request an on-demand vulnerability scan
-    parameters:
-      registry:
-        description: Container registry where the container image has been published
-        type: string
-      repository:
-        description: Repository name that contains the container image
-        type: string
-      tag:
-        description: The tag to scan
-        type: string
-      digest:
-        description: An image digest to scan (format sha256:1ee...1d3b)
-        type: string
-    steps:
-      - run:
-          command: |
             REGISTRY=<<parameters.registry>>
             REPOSITORY=<<parameters.repository>>
-            TAG_OR_DIGEST=<<parameters.digest>>
+            TAG_OR_DIGEST=<<parameters.tag>>
 
-            if [[ "<<parameters.tag>>" != "" ]]; then
-              TAG_OR_DIGEST=<<parameters.tag>>
+            if [[ "<<parameters.digest>>" != "" ]]; then
+              TAG_OR_DIGEST=<<parameters.digest>>
             fi
 
             lacework vulnerability scan run $REGISTRY $REPOSITORY $TAG_OR_DIGEST --poll --noninteractive
@@ -70,11 +69,12 @@ jobs:
       tag:
         description: The tag to scan
         type: string
+        default: latest
       digest:
         description: An image digest to scan (format sha256:1ee...1d3b)
         type: string
+        default: ""
     steps:
-      - install-cli
       - request-scan:
           registry: << parameters.registry >>
           repository: << parameters.repository >>
